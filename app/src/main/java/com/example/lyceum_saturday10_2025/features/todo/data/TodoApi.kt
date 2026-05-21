@@ -7,10 +7,9 @@ import retrofit2.http.GET
 import retrofit2.http.POST
 
 interface TodoApi {
-
     @GET("/items")
     suspend fun getItems(): List<TodoModel>
 
     @POST("/items/add")
-    suspend fun addItem(@Body body: TodoRequest)
+    suspend fun addItem(@Body item: TodoRequest)
 }

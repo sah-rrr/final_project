@@ -28,43 +28,44 @@ class TodoRepository(val applicationContext: Context) {
     }
 
     suspend fun addItem(text: String) {
-        api.addItem(TodoRequest(text))
+        try {
+            api.addItem(TodoRequest(text))
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     private fun getRetrofit(): TodoApi {
-        val accessToken = prefs.accessToken
-
         val httpClient = Builder()
         val logging = HttpLoggingInterceptor()
         logging.setLevel(HttpLoggingInterceptor.Level.BODY)
         httpClient.addInterceptor(logging)
+
         httpClient.addInterceptor { chain ->
-            chain.proceed(
-                chain.request().newBuilder().also {
-                    it.addHeader("Accept", "application/json")
-                    if (accessToken != null) {
-                        it.addHeader(
-                            "Authorization",
-                            "Bearer $accessToken"
-                        )
-                    }
-                }.build()
-            )
-        }
-            .also { client ->
-                client.authenticator(
-                    JWTAuthenticator(
-                        context = applicationContext,
-                        tokensApi = getTokensApi()
-                    )
-                )
+            val currentToken = prefs.accessToken
+
+            val newRequest = chain.request().newBuilder().apply {
+                addHeader("Accept", "application/json")
+                if (!currentToken.isNullOrEmpty()) {
+                    addHeader("Authorization", "Bearer $currentToken")
+                }
             }.build()
-        val retrofit = Retrofit.Builder()
+
+            chain.proceed(newRequest)
+        }
+            .authenticator(
+                JWTAuthenticator(
+                    context = applicationContext,
+                    tokensApi = getTokensApi()
+                )
+            )
+
+        return Retrofit.Builder()
             .baseUrl("http://10.0.2.2:8080")
             .addConverterFactory(GsonConverterFactory.create())
             .client(httpClient.build())
             .build()
-        return retrofit.create(TodoApi::class.java)
+            .create(TodoApi::class.java)
     }
 
     private fun getTokensApi(): TokensApi {
